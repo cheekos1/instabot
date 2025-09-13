@@ -1,0 +1,31 @@
+{
+  "name": "discord-instabot",
+  "version": "1.0.0",
+  "description": "Instagram-style profile gallery Discord bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "instagram",
+    "gallery",
+    "profile"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "jimp": "^0.22.10",
+    "@jimp/plugin-resize": "^0.22.10",
+    "sqlite3": "^5.1.6",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.18.0 <22.0.0"
+  }
+}
