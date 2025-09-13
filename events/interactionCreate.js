@@ -288,60 +288,51 @@ async function handleNavigation(interaction, direction, args) {
       files: 0 // Always 0 for navigation
     });
     
-    // Skip editReply entirely for navigation - Discord API is unreliable for edits
-    // Go straight to followUp which is much more reliable
-    console.log(`🔄 Using followUp approach for navigation (bypassing editReply)`);
+    // Delete and recreate approach - most reliable method
+    // Delete the old message and send a new one instead of editing
+    console.log(`🔄 Using delete-and-recreate approach for navigation`);
     
     try {
-      // Use followUp instead of editReply - this should be more reliable
-      await interaction.followUp({
-        content: `📸 Navigated to image ${newIndex + 1}`,
+      // Delete the original message
+      console.log(`🗑️ Deleting original message: ${interaction.message?.id}`);
+      await interaction.message.delete().catch(deleteError => {
+        console.log(`⚠️ Could not delete original message:`, deleteError.message);
+        // Continue anyway - not critical if deletion fails
+      });
+      
+      // Send new message with updated content
+      console.log(`📤 Sending new navigation message`);
+      await interaction.channel.send({
         embeds: [embed],
         components: [actionRow]
       });
-      console.log(`✅ Navigation followUp completed successfully for user ${userId}`);
-      return; // Success with followUp
-    } catch (followUpError) {
-      console.error(`❌ FollowUp failed:`, {
-        error: followUpError.message,
-        code: followUpError.code,
-        status: followUpError.status,
+      
+      console.log(`✅ Navigation completed successfully with delete-and-recreate for user ${userId}`);
+      return; // Success with delete-and-recreate
+    } catch (deleteRecreateError) {
+      console.error(`❌ Delete-and-recreate failed:`, {
+        error: deleteRecreateError.message,
+        code: deleteRecreateError.code,
+        status: deleteRecreateError.status,
         interactionId: interaction.id,
         userId: userId
       });
       
-      // Try simple text-only fallback
+      // Fallback: try followUp if delete-and-recreate fails
       try {
-        console.log(`🔄 Attempting simple text fallback`);
+        console.log(`🔄 Fallback: attempting followUp`);
         await interaction.followUp({
           content: `📸 **${user?.username || targetUser.displayName}'s Gallery**\n**Image ${newIndex + 1} of ${userImages.length}** • ${currentImage.like_count} likes\n\n${imageUrl}`,
           components: [actionRow]
         });
-        console.log(`✅ Simple text fallback successful for user ${userId}`);
-        return; // Success with simple fallback
-      } catch (simpleError) {
-        console.error(`❌ Simple fallback failed:`, {
-          error: simpleError.message,
-          code: simpleError.code,
-          status: simpleError.status
+        console.log(`✅ Fallback followUp successful for user ${userId}`);
+        return; // Success with fallback
+      } catch (fallbackError) {
+        console.error(`❌ All navigation methods failed:`, {
+          error: fallbackError.message,
+          code: fallbackError.code,
+          status: fallbackError.status
         });
-        
-        // Final attempt: Send a new message in the channel (bypass interaction entirely)
-        try {
-          console.log(`🔄 Final attempt: sending new channel message`);
-          await interaction.channel.send({
-            content: `📸 **${user?.username || targetUser.displayName}'s Gallery**\n**Image ${newIndex + 1} of ${userImages.length}** • ${currentImage.like_count} likes\n\n${imageUrl}`,
-            components: [actionRow]
-          });
-          console.log(`✅ New channel message successful for user ${userId}`);
-          return; // Success with new message
-        } catch (channelError) {
-          console.error(`❌ All methods failed:`, {
-            error: channelError.message,
-            code: channelError.code,
-            status: channelError.status
-          });
-        }
       }
     }
 
@@ -548,14 +539,57 @@ async function handleLike(interaction, imageId) {
 
     const actionRow = new ActionRowBuilder().addComponents(buttons);
 
-    // Build reply object - ensure consistent structure for proper editing
-    const replyData = {
-      embeds: [embed],
-      components: [actionRow],
-      files: cardAttachment ? [cardAttachment] : [] // Always include files array, even if empty
-    };
-
-    await interaction.editReply(replyData);
+    // Delete and recreate approach for like updates
+    console.log(`🔄 Using delete-and-recreate approach for like update`);
+    
+    try {
+      // Delete the original message
+      console.log(`🗑️ Deleting original message for like update: ${interaction.message?.id}`);
+      await interaction.message.delete().catch(deleteError => {
+        console.log(`⚠️ Could not delete original message for like:`, deleteError.message);
+        // Continue anyway - not critical if deletion fails
+      });
+      
+      // Send new message with updated like count
+      console.log(`📤 Sending new like update message`);
+      await interaction.channel.send({
+        embeds: [embed],
+        components: [actionRow],
+        files: cardAttachment ? [cardAttachment] : []
+      });
+      
+      console.log(`✅ Like update completed successfully with delete-and-recreate`);
+    } catch (deleteRecreateError) {
+      console.error(`❌ Delete-and-recreate for like failed:`, {
+        error: deleteRecreateError.message,
+        code: deleteRecreateError.code,
+        status: deleteRecreateError.status
+      });
+      
+      // Fallback: try editReply if delete-and-recreate fails
+      try {
+        console.log(`🔄 Fallback: attempting editReply for like`);
+        const replyData = {
+          embeds: [embed],
+          components: [actionRow],
+          files: cardAttachment ? [cardAttachment] : []
+        };
+        await interaction.editReply(replyData);
+        console.log(`✅ Fallback editReply successful for like`);
+      } catch (fallbackError) {
+        console.error(`❌ All like update methods failed:`, {
+          error: fallbackError.message,
+          code: fallbackError.code,
+          status: fallbackError.status
+        });
+        
+        // Final fallback: send follow-up
+        await interaction.followUp({
+          content: `❤️ ${hasLiked ? 'Liked' : 'Unliked'}! (${updatedImage.like_count} likes)`,
+          flags: 64
+        });
+      }
+    }
 
   } catch (error) {
     console.error('Error handling like:', error);
